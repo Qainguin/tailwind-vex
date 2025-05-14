@@ -8,8 +8,8 @@ interface Style {
   fontType: string; // e.g. "monoM"
   rounded: boolean;
   align: 0 | 1 | 2;
-  width: number | 'auto' | 'full'; // Add width property
-  height: number | 'auto' | 'full'; // Add height property
+  width: number | "auto" | "full"; // Add width property
+  height: number | "auto" | "full"; // Add height property
 }
 
 const ColorMap: Record<string, [number, number, number]> = {
@@ -47,8 +47,8 @@ function parseClasses(cls: string): Style {
     fontType: FontTypeMap["text-md"],
     rounded: false,
     align: 0,
-    width: 'auto', // Default width
-    height: 'auto', // Default height
+    width: "auto", // Default width
+    height: "auto", // Default height
   };
   for (let c of cls.split(/\s+/)) {
     if (c.startsWith("text-") && ColorMap[c.slice(5)]) {
@@ -68,20 +68,22 @@ function parseClasses(cls: string): Style {
       S.align = 1;
     } else if (c === "text-right") {
       S.align = 2;
-    } else if (c.startsWith("w-")) { // Handle width classes
+    } else if (c.startsWith("w-")) {
+      // Handle width classes
       const value = c.slice(2);
-      if (value === 'auto') {
-        S.width = 'auto';
-      } else if (value === 'full') {
+      if (value === "auto") {
+        S.width = "auto";
+      } else if (value === "full") {
         S.width = VEX_SCREEN_WIDTH;
       } else {
         S.width = parseInt(value) * 5; // Assuming units like p- and m-
       }
-    } else if (c.startsWith("h-")) { // Handle height classes
+    } else if (c.startsWith("h-")) {
+      // Handle height classes
       const value = c.slice(2);
-      if (value === 'auto') {
-        S.height = 'auto';
-      } else if (value === 'full') {
+      if (value === "auto") {
+        S.height = "auto";
+      } else if (value === "full") {
         S.height = VEX_SCREEN_HEIGHT;
       } else {
         S.height = parseInt(value) * 5; // Assuming units like p- and m-
@@ -131,8 +133,9 @@ function genCpp(elems: Elem[]): string {
     console.log(S.fontType);
     lines.push(`  // <${e.tag} class="${e.classes}">`);
 
-    let elementWidth = S.width === 'auto' ? `240-2*cursorX` : S.width;
-    let elementHeight = S.height === 'auto' ? `${S.textSize + 2 * S.padding}` : S.height;
+    let elementWidth = S.width === "auto" ? `240-2*cursorX` : S.width;
+    let elementHeight =
+      S.height === "auto" ? `${S.textSize + 2 * S.padding}` : S.height;
 
     lines.push(`  cursorY += ${S.margin};`);
     lines.push(`  cursorX = ${S.margin};`);
@@ -156,30 +159,39 @@ function genCpp(elems: Elem[]): string {
     }
 
     if (e.tag === "img") {
-        // For images, if height is 'auto', we need a placeholder or
-        // a way to determine the image height. For now, let's keep
-        // the placeholder comment. If a height is specified, use it.
-        elementHeight = S.height === 'auto' ? `/* image height */ 50` : S.height;
-        lines.push(
-            `  Brain.Screen.drawImageFromFile(` +
-            `cursorX, cursorY, "${e.content}");`
-        );
-        lines.push(`  cursorY += ${elementHeight};`);
-
+      // For images, if height is 'auto', we need a placeholder or
+      // a way to determine the image height. For now, let's keep
+      // the placeholder comment. If a height is specified, use it.
+      elementHeight = S.height === "auto" ? `/* image height */ 50` : S.height;
+      lines.push(
+        `  Brain.Screen.drawImageFromFile(` +
+          `cursorX, cursorY, "${e.content}");`
+      );
+      lines.push(`  cursorY += ${elementHeight};`);
     } else {
       const [tr, tg, tb] = S.textColor;
       lines.push(`  Brain.Screen.setPenColor(color(${tr},${tg},${tb}));`);
       lines.push(`  Brain.Screen.setFont(${S.fontType});`);
       const xPos =
         S.align === 1
-          ? `cursorX + ${typeof elementWidth === 'number' ? elementWidth / 2 : `(${elementWidth})/2`} - (Brain.Screen.getStringWidth("${e.content}")/2)`
+          ? `cursorX + ${
+              typeof elementWidth === "number"
+                ? elementWidth / 2
+                : `(${elementWidth})/2`
+            } - (Brain.Screen.getStringWidth("${e.content}")/2)`
           : S.align === 2
-          ? `cursorX + ${typeof elementWidth === 'number' ? elementWidth : `(${elementWidth})`} - ${S.padding} - Brain.Screen.getStringWidth("${e.content}")`
+          ? `cursorX + ${
+              typeof elementWidth === "number"
+                ? elementWidth
+                : `(${elementWidth})`
+            } - ${S.padding} - Brain.Screen.getStringWidth("${e.content}")`
           : `cursorX + ${S.padding}`;
-          
+
       lines.push(
         `  Brain.Screen.printAt(` +
-          `${xPos}, cursorY + ${typeof S.height === "number" ? S.height / 2 : 0}, ` +
+          `${xPos}, cursorY + ${
+            typeof S.height === "number" ? S.height / 2 : 0
+          }, ` +
           `"${e.content}");`
       );
       lines.push(`  cursorY += ${S.textSize} + 2*${S.padding};`); // Text content still adds height based on text size + padding
@@ -193,24 +205,9 @@ function genCpp(elems: Elem[]): string {
   return lines.join("\n");
 }
 
+export function genOutput(html: string): string {
+  const elems = extractElements(html);
+  return genCpp(elems);
+}
+
 // --- wiring to the page ---
-const inputEl = document.getElementById("htmlInput") as HTMLTextAreaElement;
-const outputEl = document.getElementById("cppOutput") as HTMLTextAreaElement;
-const btn = document.getElementById("convertBtn") as HTMLButtonElement;
-const dl = document.getElementById("downloadLink") as HTMLAnchorElement;
-
-btn.addEventListener("click", () => {
-  const elems = extractElements(inputEl.value);
-  outputEl.value = genCpp(elems);
-});
-
-outputEl.addEventListener("input", () => {
-  const blob = new Blob([outputEl.value], { type: "text/plain" });
-  dl.href = URL.createObjectURL(blob);
-  dl.download = "output.cpp";
-});
-
-inputEl.addEventListener("input", () => {
-  const elems = extractElements(inputEl.value);
-  outputEl.value = genCpp(elems);
-});
